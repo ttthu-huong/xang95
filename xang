@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="XangAlert">
+<title>XăngAlert – Dự báo giá xăng</title>
+<link rel="manifest" href="./xang-manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #12121a;
+    --border: #1e1e2e;
+    --accent: #ff6b00;
+    --accent2: #ffb300;
+    --green: #00e676;
+    --red: #ff1744;
+    --text: #e8e8f0;
+    --muted: #5a5a7a;
+    --glow: rgba(255,107,0,0.25);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* BG grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,107,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,107,0,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.8);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: -1px;
+  }
+  .logo span { color: var(--text); }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  /* Hero price */
+  .hero {
+    text-align: center;
+    padding: 48px 0 32px;
+  }
+  .hero-label {
+    font-size: 0.75rem;
+    letter-spacing: 4px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-family: 'Space Mono', monospace;
+  }
+  .hero-price {
+    font-size: clamp(4rem, 12vw, 7rem);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--accent);
+    text-shadow: 0 0 60px var(--glow);
+    font-variant-numeric: tabular-nums;
+    transition: all 0.4s;
+  }
+  .hero-unit {
+    font-size: 1.4rem;
+    color: var(--muted);
+    margin-top: 4px;
+    font-weight: 300;
+  }
+  .hero-change {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 4px 16px;
+    border-radius: 100px;
+  }
+  .hero-change.up { background: rgba(255,23,68,0.15); color: var(--red); }
+  .hero-change.down { background: rgba(0,230,118,0.12); color: var(--green); }
+  .hero-change.flat { background: rgba(255,179,0,0.12); color: var(--accent2); }
+  .hero-source {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.3px;
+  }
+
+  /* Grid cards */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media(max-width:600px){ .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s, transform 0.2s;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .card:hover::before { opacity: 1; }
+  .card-label {
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 8px;
+  }
+  .card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .card-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Prediction chart */
+  .chart-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .chart-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .chart-title {
+    font-size: 0.65rem;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+  }
+  .badge {
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 100px;
+    background: rgba(255,107,0,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(255,107,0,0.3);
+  }
+
+  canvas#chart { width: 100% !important; height: 200px !important; }
+
+  /* Notify panel */
+  .notify-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .notify-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .notify-title .icon { font-size: 1.4rem; }
+
+  .threshold-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .threshold-row label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    min-width: 160px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+  }
+  .threshold-row input[type=number] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.9rem;
+    width: 140px;
+    transition: border-color 0.2s;
+  }
+  .threshold-row input:focus { outline: none; border-color: var(--accent); }
+  .threshold-row span { color: var(--muted); font-size: 0.8rem; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 4px 20px var(--glow); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+  /* Log */
+  .log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    max-height: 150px;
+    overflow-y: auto;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.8;
+    margin-top: 16px;
+  }
+  .log-entry { color: var(--muted); }
+  .log-entry.ok { color: var(--green); }
+  .log-entry.warn { color: var(--accent2); }
+  .log-entry.sent { color: var(--accent); }
+  .log-entry.error { color: var(--red); }
+
+  /* Fuel selector */
+  .fuel-tabs {
+    display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .fuel-tab {
+    padding: 6px 18px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .fuel-tab.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .fuel-tab:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+  /* Perm denied */
+  .perm-warn {
+    background: rgba(255,23,68,0.1);
+    border: 1px solid rgba(255,23,68,0.3);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.8rem;
+    color: var(--red);
+    font-family: 'Space Mono', monospace;
+    margin-top: 12px;
+    display: none;
+  }
+
+  .mobile-help {
+    background: rgba(255,179,0,0.12);
+    border: 1px solid rgba(255,179,0,0.35);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--accent2);
+    font-family: 'Space Mono', monospace;
+    margin-top: 10px;
+    display: none;
+  }
+  .mobile-help strong { color: #ffd063; }
+
+  /* Alert type toggles */
+  .alert-types { display: flex; flex-direction: column; gap: 10px; }
+  .alert-type-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: border-color 0.2s;
+  }
+  .alert-type-row:hover { border-color: rgba(255,107,0,0.3); }
+
+  .toggle-label {
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; flex: 1; min-width: 200px;
+  }
+  .toggle-label input[type=checkbox] { display: none; }
+  .toggle-track {
+    width: 36px; height: 20px; border-radius: 100px;
+    background: var(--border);
+    position: relative; flex-shrink: 0;
+    transition: background 0.25s;
+  }
+  .toggle-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--muted);
+    position: absolute; top: 3px; left: 3px;
+    transition: transform 0.25s, background 0.25s;
+  }
+  .toggle-label input:checked ~ .toggle-track { background: var(--accent); }
+  .toggle-label input:checked ~ .toggle-track .toggle-thumb {
+    transform: translateX(16px); background: #000;
+  }
+  .toggle-text { display: flex; flex-direction: column; gap: 1px; }
+  .tname { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+  .tdesc { font-size: 0.65rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+  .mini-input {
+    width: 80px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    margin-left: auto;
+  }
+  .mini-input:focus { outline: none; border-color: var(--accent); }
+  .mini-label {
+    font-size: 0.65rem; color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    white-space: nowrap;
+  }
+
+  /* Surge warning banner */
+  .surge-banner {
+    display: none;
+    background: linear-gradient(135deg, rgba(255,179,0,0.15), rgba(255,107,0,0.1));
+    border: 1px solid rgba(255,179,0,0.4);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    font-size: 1rem;
+    animation: surge-pulse 2s ease-in-out infinite;
+  }
+  @keyframes surge-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,179,0,0.3); }
+    50%      { box-shadow: 0 0 0 8px rgba(255,179,0,0); }
+  }
+  .surge-banner.active { display: block; }
+
+  /* Ticker tape */
+  .ticker {
+    overflow: hidden; white-space: nowrap;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 0;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-bottom: 28px;
+  }
+  .ticker-inner {
+    display: inline-block;
+    animation: ticker 25s linear infinite;
+  }
+  @keyframes ticker {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* Responsive tweak */
+  @media(max-width:480px){
+    header { padding: 14px 16px; }
+    main { padding: 16px 12px 60px; }
+    .hero-price { font-size: 4.5rem; }
+  }
+
+  @media (max-width: 768px) {
+    .hero { padding: 28px 0 20px; }
+    .hero-label { letter-spacing: 2px; }
+    .hero-unit { font-size: 1rem; }
+    .hero-change { font-size: 0.95rem; }
+
+    .fuel-tabs {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+      margin-bottom: 18px;
+    }
+    .fuel-tabs::-webkit-scrollbar { height: 6px; }
+    .fuel-tab { white-space: nowrap; }
+
+    .card { padding: 16px; }
+    .card-value { font-size: 1.6rem; }
+
+    .chart-wrap,
+    .notify-panel { padding: 16px; }
+
+    canvas#chart { height: 220px !important; }
+
+    .threshold-row {
+      align-items: stretch;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .threshold-row label { min-width: 0; }
+    .threshold-row input[type=number] {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .alert-type-row {
+      align-items: stretch;
+      gap: 8px;
+    }
+    .toggle-label {
+      min-width: 0;
+      width: 100%;
+    }
+    .mini-input {
+      width: 100%;
+      margin-left: 0;
+    }
+
+    .btn-row .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">XĂNG<span>ALERT</span></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="font-size:0.7rem;color:var(--muted);font-family:'Space Mono',monospace" id="hdr-time">--:--:--</span>
+    <div class="status-dot"></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- Ticker -->
+  <div class="ticker">
+    <div class="ticker-inner" id="ticker-text">
+      ⛽ RON 95-III: đang tải... &nbsp;&nbsp;|&nbsp;&nbsp; E5 RON 92: đang tải... &nbsp;&nbsp;|&nbsp;&nbsp; Dầu diesel: đang tải... &nbsp;&nbsp;|&nbsp;&nbsp; Dầu hỏa: đang tải...
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-label">Giá hiện tại — <span id="fuel-name-label">RON 95-III</span></div>
+    <div class="hero-price" id="hero-price">--,---</div>
+    <div class="hero-unit">VNĐ / lít</div>
+    <div class="hero-change flat" id="hero-change">⟶ Đang cập nhật...</div>
+    <div class="hero-source" id="hero-source">Nguồn giá: đang đồng bộ...</div>
+  </div>
+
+  <!-- Fuel tabs -->
+  <div class="fuel-tabs">
+    <button class="fuel-tab active" onclick="selectFuel(0)">RON 95-III</button>
+    <button class="fuel-tab" onclick="selectFuel(1)">E5 RON 92</button>
+    <button class="fuel-tab" onclick="selectFuel(2)">Dầu Diesel</button>
+    <button class="fuel-tab" onclick="selectFuel(3)">Dầu Hỏa</button>
+  </div>
+
+  <!-- Stats grid -->
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">Dự báo hôm nay</div>
+      <div class="card-value" id="stat-today">--,---</div>
+      <div class="card-sub" id="stat-today-sub">VNĐ/lít</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Dự báo tuần tới</div>
+      <div class="card-value" id="stat-week">--,---</div>
+      <div class="card-sub" id="stat-week-sub">VNĐ/lít</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Biến động 30 ngày</div>
+      <div class="card-value" id="stat-vol">--</div>
+      <div class="card-sub">biến động ±</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Xu hướng</div>
+      <div class="card-value" id="stat-trend">--</div>
+      <div class="card-sub" id="stat-trend-sub">dựa trên mô hình MA</div>
+    </div>
+  </div>
+
+  <!-- Surge warning banner -->
+  <div class="surge-banner" id="surge-banner">⚡ CẢNH BÁO: Dự báo phát hiện biến động lớn sắp xảy ra!</div>
+
+  <!-- Chart -->
+  <div class="chart-wrap">
+    <div class="chart-header">
+      <div class="chart-title">Lịch sử & Dự báo 7 ngày</div>
+      <div class="badge">AI Prediction</div>
+    </div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- Notification panel -->
+  <div class="notify-panel">
+    <div class="notify-title">
+      <span class="icon">🔔</span> Cài đặt thông báo
+    </div>
+
+    <!-- Alert type toggles -->
+    <div class="alert-types">
+      <div class="alert-type-row">
+        <label class="toggle-label">
+          <input type="checkbox" id="alert-change" checked>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text">
+            <span class="tname">🔄 Giá thay đổi thực tế</span>
+            <span class="tdesc">Thông báo ngay khi giá thay đổi so với lần trước</span>
+          </span>
+        </label>
+        <input type="number" id="change-min-delta" value="200" step="50" class="mini-input">
+        <span class="mini-label">đ tối thiểu</span>
+      </div>
+      <div class="alert-type-row">
+        <label class="toggle-label">
+          <input type="checkbox" id="alert-surge" checked>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text">
+            <span class="tname">⚡ Sắp biến động lớn</span>
+            <span class="tdesc">Cảnh báo trước khi dự báo thấy biến động mạnh</span>
+          </span>
+        </label>
+        <input type="number" id="surge-threshold" value="500" step="50" class="mini-input">
+        <span class="mini-label">đ/ngày</span>
+      </div>
+      <div class="alert-type-row">
+        <label class="toggle-label">
+          <input type="checkbox" id="alert-thresh" checked>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-text">
+            <span class="tname">🚧 Vượt ngưỡng tùy chỉnh</span>
+            <span class="tdesc">Cảnh báo khi giá vượt hoặc dưới ngưỡng bạn đặt</span>
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin:16px 0"></div>
+
+    <div class="threshold-row">
+      <label>NGƯỠNG CAO</label>
+      <input type="number" id="thresh-high" value="25000" step="100">
+      <span>VNĐ/lít</span>
+    </div>
+    <div class="threshold-row">
+      <label>NGƯỠNG THẤP</label>
+      <input type="number" id="thresh-low" value="20000" step="100">
+      <span>VNĐ/lít</span>
+    </div>
+    <div class="threshold-row">
+      <label>TẦN SUẤT KIỂM TRA</label>
+      <input type="number" id="interval-min" value="30" min="1" max="1440" step="1">
+      <span>phút</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-enable" onclick="enableNotifications()">🔔 Bật thông báo</button>
+      <button class="btn btn-secondary" onclick="testNotification()">🧪 Gửi thử</button>
+      <button class="btn btn-secondary" onclick="simulatePriceChange()">📊 Mô phỏng thay đổi giá</button>
+    </div>
+
+    <div class="perm-warn" id="perm-warn">
+      ⚠ Trình duyệt đã chặn thông báo. Vào Settings → cho phép thông báo từ trang này.
+    </div>
+
+    <div class="mobile-help" id="mobile-help"></div>
+
+    <div class="log" id="log">
+      <div class="log-entry ok">[SYSTEM] XăngAlert khởi động...</div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+// ── DATA MODEL ────────────────────────────────────────────────
+const FUELS = [
+  { name: 'RON 95-III',  base: 29950, symbol: '95', real: true },
+  { name: 'E5 RON 92',   base: 28070, symbol: 'E5', real: true },
+  { name: 'Dầu Diesel',  base: 37890, symbol: 'DO', real: true },
+  { name: 'Dầu Hỏa',    base: 19000, symbol: 'KO', real: false },
+];
+
+let currentFuelIdx = 0;
+let notifyEnabled = false;
+let notifyTimer = null;
+let chart = null;
+let marketMeta = {
+  source: 'PVOIL',
+  updatedAt: '--/--/---- --:--',
+  isLive: false,
+};
+
+const MARKET_TEXT_MIRROR = 'https://r.jina.ai/http://www.pvoil.com.vn/bang-gia-xang-dau';
+
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isAndroid = /Android/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const API_BASE = window.location.origin;
+
+// Track last notified state to avoid duplicate alerts
+const alertState = FUELS.map(() => ({
+  lastPrice: null,         // last confirmed price (for change detection)
+  surgeAlerted: false,     // whether surge warning was sent this cycle
+  threshHighFired: false,
+  threshLowFired: false,
+}));
+
+// Generate realistic price history (last 30 days)
+function genHistory(base) {
+  const prices = [];
+  let p = base;
+  for (let i = 29; i >= 0; i--) {
+    const change = (Math.random() - 0.48) * 400;
+    p = Math.max(base * 0.85, Math.min(base * 1.15, p + change));
+    prices.push(Math.round(p / 50) * 50);
+  }
+  return prices;
+}
+
+function buildHistoryFromCurrent(current) {
+  const prices = [];
+  let p = current;
+  for (let i = 29; i >= 0; i--) {
+    const drift = (Math.random() - 0.5) * 220;
+    p = Math.max(current * 0.9, Math.min(current * 1.1, p + drift));
+    prices.push(Math.round(p / 10) * 10);
+  }
+  prices[prices.length - 1] = current;
+  return prices;
+}
+
+// Moving average prediction
+function predict(history, days = 7) {
+  const win = 7;
+  const preds = [];
+  let last = [...history];
+  for (let d = 0; d < days; d++) {
+    const ma = last.slice(-win).reduce((a,b) => a+b, 0) / win;
+    const noise = (Math.random() - 0.49) * 250;
+    const next = Math.round((ma + noise) / 50) * 50;
+    preds.push(next);
+    last.push(next);
+  }
+  return preds;
+}
+
+// State per fuel
+const fuelState = FUELS.map(f => {
+  const history = genHistory(f.base);
+  const predictions = predict(history);
+  return { history, predictions };
+});
+
+function getCurrentPrice(idx) {
+  return fuelState[idx].history.at(-1);
+}
+
+function parseVndPrice(token) {
+  if (!token) return null;
+  const cleaned = token.replace(/[^\d]/g, '');
+  if (!cleaned) return null;
+  const n = parseInt(cleaned, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function parseMarketRows(text) {
+  const out = {};
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  for (const ln of lines) {
+    if (/Xăng\s+RON\s*95-III/i.test(ln)) {
+      const m = ln.match(/(\d{1,3}(?:\.\d{3})+)\s*đ/i);
+      out.ron95 = parseVndPrice(m && m[1]);
+    }
+    if (/Xăng\s+E5\s+RON\s*92/i.test(ln)) {
+      const m = ln.match(/(\d{1,3}(?:\.\d{3})+)\s*đ/i);
+      out.e5 = parseVndPrice(m && m[1]);
+    }
+    if (/Dầu\s+DO\s+0,05S-II/i.test(ln)) {
+      const m = ln.match(/(\d{1,3}(?:\.\d{3})+)\s*đ/i);
+      out.do = parseVndPrice(m && m[1]);
+    }
+
+    if (/Giá điều chỉnh lúc/i.test(ln)) {
+      const when = ln.match(/Giá điều chỉnh lúc\s*([^*]+?)\s*\(/i);
+      if (when && when[1]) {
+        out.updatedAt = when[1].trim();
+      }
+    }
+  }
+
+  return out;
+}
+
+async function fetchDomesticFuelPrices() {
+  const res = await fetch(MARKET_TEXT_MIRROR, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  const parsed = parseMarketRows(text);
+
+  if (!parsed.ron95) {
+    throw new Error('Không đọc được giá RON 95-III từ nguồn dữ liệu.');
+  }
+
+  return {
+    ron95: parsed.ron95,
+    e5: parsed.e5,
+    diesel: parsed.do,
+    updatedAt: parsed.updatedAt || new Date().toLocaleString('vi-VN'),
+  };
+}
+
+function applyMarketData(data) {
+  const updates = [
+    { idx: 0, value: data.ron95 },
+    { idx: 1, value: data.e5 },
+    { idx: 2, value: data.diesel },
+  ];
+
+  updates.forEach(({ idx, value }) => {
+    if (!value) return;
+    FUELS[idx].base = value;
+    fuelState[idx].history = buildHistoryFromCurrent(value);
+    fuelState[idx].predictions = predict(fuelState[idx].history);
+    alertState[idx].lastPrice = value;
+  });
+
+  marketMeta.source = 'PVOIL (trong nước)';
+  marketMeta.updatedAt = data.updatedAt;
+  marketMeta.isLive = true;
+}
+
+function renderMarketMeta() {
+  const el = document.getElementById('hero-source');
+  el.textContent = marketMeta.isLive
+    ? `Nguồn giá: ${marketMeta.source} | Cập nhật: ${marketMeta.updatedAt}`
+    : `Nguồn giá: dữ liệu dự phòng | Cập nhật: ${marketMeta.updatedAt}`;
+}
+
+async function syncMarketPrices() {
+  try {
+    const data = await fetchDomesticFuelPrices();
+    applyMarketData(data);
+    addLog(`Đồng bộ giá trong nước thành công: RON 95-III = ${fmt(data.ron95)} đ/lít.`, 'ok');
+  } catch (err) {
+    marketMeta.source = 'PVOIL (không kết nối được)';
+    marketMeta.updatedAt = new Date().toLocaleString('vi-VN');
+    marketMeta.isLive = false;
+    addLog(`Không thể đồng bộ giá trực tuyến, dùng dữ liệu dự phòng. (${err.message})`, 'warn');
+  }
+
+  renderMarketMeta();
+  refreshUI();
+}
+
+// ── SURGE DETECTION ───────────────────────────────────────────
+// Analyse predicted prices: find if any consecutive-day change exceeds threshold
+function detectSurge(idx) {
+  const preds = fuelState[idx].predictions;
+  const cur   = getCurrentPrice(idx);
+  const surgeThresh = parseInt(document.getElementById('surge-threshold').value) || 500;
+
+  // Check prediction jumps: include current → pred[0] and pred[i] → pred[i+1]
+  const allPoints = [cur, ...preds];
+  for (let i = 0; i < allPoints.length - 1; i++) {
+    const delta = Math.abs(allPoints[i+1] - allPoints[i]);
+    if (delta >= surgeThresh) {
+      const direction = allPoints[i+1] > allPoints[i] ? '📈 TĂNG' : '📉 GIẢM';
+      return { detected: true, delta, direction, dayIdx: i };
+    }
+  }
+  return { detected: false };
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────
+function fmt(n) { return n.toLocaleString('vi-VN'); }
+
+function addLog(msg, cls = '') {
+  const log = document.getElementById('log');
+  const now = new Date().toLocaleTimeString('vi-VN');
+  const div = document.createElement('div');
+  div.className = 'log-entry ' + cls;
+  div.textContent = `[${now}] ${msg}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function renderMobileHelp(message = '') {
+  const el = document.getElementById('mobile-help');
+  if (!el) return;
+
+  if (message) {
+    el.innerHTML = message;
+    el.style.display = 'block';
+    return;
+  }
+
+  if (isIOS && !isStandalone) {
+    el.innerHTML = '<strong>iPhone/iPad:</strong> Để nhận thông báo, hãy mở menu Share trong Safari rồi chọn Add to Home Screen. Sau đó mở app từ màn hình chính và nhấn Bật thông báo.';
+    el.style.display = 'block';
+    return;
+  }
+
+  if (isAndroid && !isStandalone) {
+    el.innerHTML = '<strong>Android:</strong> Bạn nên Add to Home screen để chạy ổn định hơn. Sau đó nhấn Bật thông báo.';
+    el.style.display = 'block';
+    return;
+  }
+
+  el.style.display = 'none';
+}
+
+function updateHeader() {
+  document.getElementById('hdr-time').textContent =
+    new Date().toLocaleTimeString('vi-VN');
+}
+setInterval(updateHeader, 1000);
+
+function updateTicker() {
+  const parts = FUELS.map((f, i) =>
+    `⛽ ${f.name}: ${fmt(getCurrentPrice(i))} đ`
+  );
+  document.getElementById('ticker-text').textContent = parts.join('  |  ');
+}
+
+// ── CHART ─────────────────────────────────────────────────────
+function buildChart(idx) {
+  const ctx = document.getElementById('chart').getContext('2d');
+  const state = fuelState[idx];
+
+  const labels30 = Array.from({length: 30}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - 29 + i);
+    return d.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'});
+  });
+  const labelsNext7 = Array.from({length: 7}, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() + i + 1);
+    return d.toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'});
+  });
+  const allLabels = [...labels30, ...labelsNext7];
+
+  const histData = [...state.history, ...Array(7).fill(null)];
+  const predData = [...Array(29).fill(null), state.history[29], ...state.predictions];
+
+  // Mark surge points in predictions
+  const surgeThresh = parseInt(document.getElementById('surge-threshold').value) || 500;
+  const surgePoints = predData.map((v, i) => {
+    if (i < 30 || v === null) return null;
+    const prev = predData[i-1];
+    return (prev !== null && Math.abs(v - prev) >= surgeThresh) ? v : null;
+  });
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: allLabels,
+      datasets: [
+        {
+          label: 'Lịch sử',
+          data: histData,
+          borderColor: '#ff6b00',
+          backgroundColor: 'rgba(255,107,0,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: true,
+        },
+        {
+          label: 'Dự báo',
+          data: predData,
+          borderColor: '#ffb300',
+          backgroundColor: 'rgba(255,179,0,0.06)',
+          borderWidth: 2,
+          borderDash: [6, 3],
+          pointRadius: ctx => surgePoints[ctx.dataIndex] !== null ? 7 : 3,
+          pointBackgroundColor: ctx => surgePoints[ctx.dataIndex] !== null ? '#ff1744' : '#ffb300',
+          pointBorderColor: ctx => surgePoints[ctx.dataIndex] !== null ? '#ff1744' : '#ffb300',
+          tension: 0.3,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#5a5a7a',
+            font: { family: 'Space Mono', size: 10 },
+            boxWidth: 20,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#12121a',
+          borderColor: '#1e1e2e',
+          borderWidth: 1,
+          titleColor: '#e8e8f0',
+          bodyColor: '#5a5a7a',
+          callbacks: {
+            label: ctx => {
+              if (ctx.raw === null) return null;
+              const surge = surgePoints[ctx.dataIndex] !== null ? ' ⚡ BIẾN ĐỘNG LỚN' : '';
+              return ` ${ctx.dataset.label}: ${fmt(ctx.raw)} đ/lít${surge}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.03)' },
+          ticks: { color: '#5a5a7a', font: { family: 'Space Mono', size: 9 }, maxTicksLimit: 10 }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#5a5a7a', font: { family: 'Space Mono', size: 9 }, callback: v => fmt(v) + 'đ' }
+        }
+      }
+    }
+  });
+}
+
+// ── SELECT FUEL ───────────────────────────────────────────────
+function selectFuel(idx) {
+  currentFuelIdx = idx;
+  document.querySelectorAll('.fuel-tab').forEach((t, i) =>
+    t.classList.toggle('active', i === idx)
+  );
+  refreshUI();
+}
+
+function refreshUI() {
+  const idx = currentFuelIdx;
+  const f = FUELS[idx];
+  const state = fuelState[idx];
+  const cur  = state.history.at(-1);
+  const prev = state.history.at(-2);
+  const diff = cur - prev;
+  const pct  = ((diff / prev) * 100).toFixed(2);
+
+  document.getElementById('fuel-name-label').textContent = f.name;
+  document.getElementById('hero-price').textContent = fmt(cur);
+
+  const chg = document.getElementById('hero-change');
+  if (diff > 0) {
+    chg.className = 'hero-change up';
+    chg.textContent = `▲ +${fmt(diff)} đ  (${pct}%)`;
+  } else if (diff < 0) {
+    chg.className = 'hero-change down';
+    chg.textContent = `▼ ${fmt(diff)} đ  (${pct}%)`;
+  } else {
+    chg.className = 'hero-change flat';
+    chg.textContent = `⟶ Không đổi`;
+  }
+
+  const predToday = state.predictions[0];
+  const predWeek  = state.predictions[6];
+  document.getElementById('stat-today').textContent = fmt(predToday);
+  document.getElementById('stat-today-sub').style.color =
+    predToday > cur ? 'var(--red)' : predToday < cur ? 'var(--green)' : 'var(--muted)';
+  document.getElementById('stat-week').textContent = fmt(predWeek);
+
+  const slice = state.history.slice(-30);
+  const avg = slice.reduce((a,b)=>a+b,0)/slice.length;
+  const vol = Math.round(Math.sqrt(slice.reduce((a,b)=>a+Math.pow(b-avg,2),0)/slice.length));
+  document.getElementById('stat-vol').textContent = `±${fmt(vol)} đ`;
+
+  const ma7  = state.history.slice(-7).reduce((a,b)=>a+b,0)/7;
+  const ma14 = state.history.slice(-14).reduce((a,b)=>a+b,0)/14;
+  document.getElementById('stat-trend').textContent =
+    ma7 > ma14 ? '📈 Tăng' : ma7 < ma14 ? '📉 Giảm' : '➡ Đi ngang';
+
+  // Surge banner in UI
+  const surge = detectSurge(idx);
+  const banner = document.getElementById('surge-banner');
+  if (surge.detected) {
+    banner.classList.add('active');
+    banner.textContent = `⚡ CẢNH BÁO: Dự báo phát hiện biến động ${surge.direction} khoảng ${fmt(surge.delta)} đ trong ${surge.dayIdx === 0 ? 'hôm nay' : surge.dayIdx + ' ngày tới'}!`;
+  } else {
+    banner.classList.remove('active');
+  }
+
+  buildChart(idx);
+  updateTicker();
+  renderMarketMeta();
+}
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────
+async function enableNotifications() {
+  if (!('Notification' in window)) {
+    addLog('Trình duyệt không hỗ trợ thông báo.', 'error');
+    return;
+  }
+
+  if (isIOS && !isStandalone) {
+    renderMobileHelp('<strong>Cần mở dưới dạng app:</strong> Trên iPhone/iPad, thông báo web chỉ hoạt động khi bạn Add to Home Screen và mở lại từ icon trên màn hình chính.');
+    addLog('iOS yêu cầu mở app từ màn hình chính trước khi xin quyền thông báo.', 'warn');
+    return;
+  }
+
+  const perm = await Notification.requestPermission();
+  const warn = document.getElementById('perm-warn');
+  const btn  = document.getElementById('btn-enable');
+
+  if (perm === 'granted') {
+    notifyEnabled = true;
+    btn.textContent = '✅ Thông báo đang bật';
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    warn.style.display = 'none';
+
+    // Init lastPrice for all fuels
+    FUELS.forEach((_, i) => { alertState[i].lastPrice = getCurrentPrice(i); });
+
+    addLog('Thông báo đã bật. Đang theo dõi giá & dự báo...', 'ok');
+    scheduleCheck();
+
+    const pushOk = await subscribeServerPush();
+    if (pushOk) {
+      addLog('Đã đăng ký server push: nhận được ngay cả khi app không mở.', 'ok');
+    } else {
+      addLog('Không đăng ký được server push nền. Vẫn nhận thông báo khi app đang mở.', 'warn');
+    }
+
+    sendNotification('XăngAlert 🔔', `Đang theo dõi giá xăng. Giá RON 95: ${fmt(getCurrentPrice(0))} đ/lít`, 'welcome');
+  } else {
+    warn.style.display = 'block';
+    addLog('Người dùng từ chối quyền thông báo.', 'error');
+  }
+}
+
+function b64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function subscribeServerPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return false;
+  }
+
+  try {
+    const keyRes = await fetch(`${API_BASE}/api/public-key`, { cache: 'no-store' });
+    if (!keyRes.ok) return false;
+    const keyJson = await keyRes.json();
+    const publicKey = keyJson && keyJson.publicKey;
+    if (!publicKey) return false;
+
+    const reg = await navigator.serviceWorker.ready;
+    let subscription = await reg.pushManager.getSubscription();
+
+    if (!subscription) {
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: b64ToUint8Array(publicKey),
+      });
+    }
+
+    const res = await fetch(`${API_BASE}/api/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subscription),
+    });
+
+    return res.ok;
+  } catch (err) {
+    addLog(`Lỗi đăng ký push server: ${err.message}`, 'warn');
+    return false;
+  }
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) {
+    addLog('Trình duyệt không hỗ trợ Service Worker.', 'warn');
+    return;
+  }
+
+  try {
+    await navigator.serviceWorker.register('./xang-sw.js');
+    addLog('Service Worker đã đăng ký.', 'ok');
+  } catch (err) {
+    addLog(`Không thể đăng ký Service Worker: ${err.message}`, 'warn');
+  }
+}
+
+function sendNotification(title, body, tag = 'xangalert') {
+  if (Notification.permission !== 'granted') return;
+  const n = new Notification(title, {
+    body,
+    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⛽</text></svg>',
+    tag,
+    requireInteraction: false,
+  });
+  n.onclick = () => { window.focus(); n.close(); };
+}
+
+function testNotification() {
+  if (Notification.permission !== 'granted') {
+    addLog('Chưa bật thông báo. Nhấn "Bật thông báo" trước!', 'warn');
+    return;
+  }
+  const idx   = currentFuelIdx;
+  const price = getCurrentPrice(idx);
+  const fuel  = FUELS[idx].name;
+  const pred  = fuelState[idx].predictions[0];
+  const surge = detectSurge(idx);
+
+  sendNotification(
+    `⛽ Thông báo thử — ${fuel}`,
+    `Giá hiện tại: ${fmt(price)} đ/lít\nDự báo ngày mai: ${fmt(pred)} đ/lít${surge.detected ? '\n⚡ CẢNH BÁO: Sắp biến động lớn!' : ''}`,
+    'test'
+  );
+  addLog(`Đã gửi thông báo thử: ${fuel} = ${fmt(price)} đ/lít`, 'sent');
+}
+
+function scheduleCheck() {
+  if (notifyTimer) clearInterval(notifyTimer);
+  const mins = parseInt(document.getElementById('interval-min').value) || 30;
+  addLog(`Lịch kiểm tra: mỗi ${mins} phút.`, 'ok');
+  notifyTimer = setInterval(runAllChecks, mins * 60 * 1000);
+}
+
+// ── MAIN CHECK ROUTINE (runs all 3 alert types) ───────────────
+function runAllChecks() {
+  if (!notifyEnabled) return;
+  FUELS.forEach((f, idx) => runChecksForFuel(idx));
+}
+
+function runChecksForFuel(idx) {
+  const f      = FUELS[idx];
+  const price  = getCurrentPrice(idx);
+  const state  = alertState[idx];
+  const high   = parseInt(document.getElementById('thresh-high').value);
+  const low    = parseInt(document.getElementById('thresh-low').value);
+
+  // ── 1. PRICE CHANGED ─────────────────────────────────────
+  if (document.getElementById('alert-change').checked) {
+    const minDelta = parseInt(document.getElementById('change-min-delta').value) || 200;
+    if (state.lastPrice !== null) {
+      const delta = price - state.lastPrice;
+      if (Math.abs(delta) >= minDelta) {
+        const dir   = delta > 0 ? '▲ TĂNG' : '▼ GIẢM';
+        const emoji = delta > 0 ? '🔴' : '🟢';
+        sendNotification(
+          `${emoji} Giá xăng đã thay đổi — ${f.name}`,
+          `${dir} ${fmt(Math.abs(delta))} đ\nTừ ${fmt(state.lastPrice)} → ${fmt(price)} đ/lít`,
+          `change-${idx}`
+        );
+        addLog(`🔄 ${f.name}: giá thay đổi ${dir} ${fmt(Math.abs(delta))} đ (${fmt(state.lastPrice)} → ${fmt(price)})`, delta > 0 ? 'warn' : 'ok');
+        state.surgeAlerted = false; // reset surge alert after real change
+      }
+    }
+    state.lastPrice = price;
+  }
+
+  // ── 2. SURGE WARNING (based on prediction) ────────────────
+  if (document.getElementById('alert-surge').checked) {
+    const surge = detectSurge(idx);
+    if (surge.detected && !state.surgeAlerted) {
+      const dayStr = surge.dayIdx === 0 ? 'hôm nay' : `trong ${surge.dayIdx} ngày tới`;
+      sendNotification(
+        `⚡ Cảnh báo sắp biến động — ${f.name}`,
+        `Dự báo ${surge.direction} khoảng ${fmt(surge.delta)} đ ${dayStr}\nGiá hiện tại: ${fmt(price)} đ/lít`,
+        `surge-${idx}`
+      );
+      addLog(`⚡ ${f.name}: dự báo ${surge.direction} ~${fmt(surge.delta)} đ ${dayStr}`, 'warn');
+      state.surgeAlerted = true;
+    } else if (!surge.detected) {
+      state.surgeAlerted = false; // reset when surge clears
+    }
+  }
+
+  // ── 3. THRESHOLD BREACH ───────────────────────────────────
+  if (document.getElementById('alert-thresh').checked) {
+    if (price > high && !state.threshHighFired) {
+      sendNotification(
+        `🚨 Giá xăng vượt ngưỡng cao — ${f.name}`,
+        `${fmt(price)} đ/lít > ngưỡng ${fmt(high)} đ/lít`,
+        `thresh-high-${idx}`
+      );
+      addLog(`🚨 ${f.name}: vượt ngưỡng cao ${fmt(high)} đ`, 'error');
+      state.threshHighFired = true;
+      state.threshLowFired  = false;
+    } else if (price < low && !state.threshLowFired) {
+      sendNotification(
+        `🟢 Giá xăng xuống dưới ngưỡng thấp — ${f.name}`,
+        `${fmt(price)} đ/lít < ngưỡng ${fmt(low)} đ/lít`,
+        `thresh-low-${idx}`
+      );
+      addLog(`✅ ${f.name}: dưới ngưỡng thấp ${fmt(low)} đ`, 'ok');
+      state.threshLowFired  = true;
+      state.threshHighFired = false;
+    } else if (price <= high && price >= low) {
+      state.threshHighFired = false;
+      state.threshLowFired  = false;
+    }
+  }
+}
+
+// ── SIMULATE PRICE CHANGE ─────────────────────────────────────
+function simulatePriceChange() {
+  const idx   = currentFuelIdx;
+  const state = fuelState[idx];
+
+  // Occasionally simulate a large surge for demo purposes
+  const bigSurge = Math.random() < 0.3;
+  const delta = bigSurge
+    ? Math.round((Math.random() > 0.5 ? 1 : -1) * (700 + Math.random() * 600) / 50) * 50
+    : Math.round((Math.random() - 0.4) * 800 / 50) * 50;
+
+  const newPrice = Math.max(10000, state.history.at(-1) + delta);
+  state.history.push(newPrice);
+  state.history.shift();
+  state.predictions = predict(state.history);
+
+  const label = delta >= 0 ? `+${fmt(delta)}` : fmt(delta);
+  addLog(`Mô phỏng cục bộ: ${FUELS[idx].name} ${label} đ → ${fmt(newPrice)} đ/lít${bigSurge ? ' (BIẾN ĐỘNG LỚN)' : ''}`, delta > 0 ? 'warn' : 'ok');
+
+  refreshUI();
+  if (notifyEnabled) runChecksForFuel(idx);
+}
+
+// ── BOOT ──────────────────────────────────────────────────────
+refreshUI();
+renderMobileHelp();
+addLog('Khởi tạo giao diện hoàn tất.', 'ok');
+addLog('Đang đồng bộ giá thị trường trong nước...', '');
+registerServiceWorker();
+syncMarketPrices();
+
+// Refresh market prices every 15 minutes.
+setInterval(syncMarketPrices, 15 * 60 * 1000);
+</script>
+</body>
+</html>

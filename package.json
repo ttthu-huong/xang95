@@ -1,0 +1,13 @@
+{
+  "name": "xangalert-push-server",
+  "version": "1.0.0",
+  "private": true,
+  "main": "xang-server.js",
+  "scripts": {
+    "start": "node xang-server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "web-push": "^3.6.7"
+  }
+}
